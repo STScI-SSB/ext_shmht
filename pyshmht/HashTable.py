@@ -9,7 +9,47 @@ import marshal
 
 class HashTable(object):
     """
-    Basic wrapper for shmht. For more information, see 'help(Cacher)'
+    Simple hash table stored in shared memory.
+        max open tables = 256
+            (bug: fix this someday)
+        string keys, max len = 256
+        string data, max len = 1024
+            (bug: make this settable per table someday)
+
+    import pyshmht
+    h = pyshmht.HashTable( filename, entries )
+
+    ## for string keys and data values only:
+
+    h.put( 'key', 'data' )
+    h['key'] = 'data'
+        # put string data
+
+    s = h.get('key')
+    s = h['key']
+        # returns string, or None if key not present
+    
+    d = h.to_dict()
+        # returns dict copied from hash table
+
+    h.remove('key')
+        # removes key from hash table
+
+    h.update(dict)
+        # insert each element of dict
+
+    print 'key' in h
+        #
+
+    h.close()
+
+    ## for string key and non-string python objects
+    h.getobj() and h.setobj() use a serializer to convert the object
+    to a string for storage.
+
+    n.b.
+
+
     """
     def __init__(self, name, capacity=0, force_init=False, serializer=marshal):
         force_init = 1 if force_init else 0
@@ -27,6 +67,11 @@ class HashTable(object):
         return val
 
     def set(self, key, value):
+        return shmht.setval(self.fd, key, value)
+
+    # "set" is a python data type, so use put()
+
+    def put(self, key, value):
         return shmht.setval(self.fd, key, value)
 
     def remove(self, key):
