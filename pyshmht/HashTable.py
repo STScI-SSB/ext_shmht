@@ -1,6 +1,7 @@
 #!/usr/bin/python
 #coding: utf-8
 
+import os
 import shmht
 import marshal
 
@@ -54,7 +55,7 @@ class HashTable(object):
     def __init__(self, name, capacity=0, force_init=False, serializer=marshal, mkdirs=False):
         if mkdirs:
             try:
-                d = os.dirname(name)
+                d = os.path.dirname(name)
                 os.makedirs(d)
             except OSError :
                 pass
