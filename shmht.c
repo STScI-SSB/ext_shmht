@@ -104,8 +104,9 @@ static PyObject * shmht_open(PyObject *self, PyObject *args)
             }
 
             if (ht_is_valid(ht)) {
-                if (capacity != 0 && capacity != ht->orig_capacity) {
-                    PyErr_Format(shmht_error, "please specify the 3rd arg(force_init=1) to overwrite an existing shmht");
+                // may not ask for larger capacity than is already in file
+                if (capacity != 0 && capacity > ht->orig_capacity) {
+                    PyErr_Format(shmht_error, "file has smaller capacity than requested (req %d, have %d); specify force_init=1 to overwrite an existing shmht", (int)capacity, (int)ht->orig_capacity);
                     goto create_failed;
                 }
                 capacity = ht->orig_capacity; //loaded capacity
