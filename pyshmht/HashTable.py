@@ -51,7 +51,13 @@ class HashTable(object):
 
 
     """
-    def __init__(self, name, capacity=0, force_init=False, serializer=marshal):
+    def __init__(self, name, capacity=0, force_init=False, serializer=marshal, mkdirs=False):
+        if mkdirs:
+            try:
+                d = os.dirname(name)
+                os.makedirs(d)
+            except OSError :
+                pass
         force_init = 1 if force_init else 0
         self.fd = shmht.open(name, capacity, force_init)
         self.loads = serializer.loads
