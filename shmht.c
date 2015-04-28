@@ -1,5 +1,3 @@
-#define _LARGEFILE64_SOURCE
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -108,8 +106,8 @@ static PyObject * shmht_open(PyObject *self, PyObject *args)
     mem_size = ht_memory_size(capacity);
     
     if (buf.st_size < mem_size) {
-        if (lseek64(fd, mem_size - 1, SEEK_SET) == -1) {
-            PyErr_Format(shmht_error, "lseek64 failed: [%d] %s", errno, strerror(errno));
+        if (lseek(fd, mem_size - 1, SEEK_SET) == -1) {
+            PyErr_Format(shmht_error, "lseek failed: [%d] %s", errno, strerror(errno));
             goto create_failed;
         }
         char t = 0;
