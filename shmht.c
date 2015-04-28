@@ -5,6 +5,7 @@
 #include <fcntl.h>
 #include <pthread.h>
 #include <sys/mman.h>
+#include <sys/file.h>
 
 #include <Python.h>
 
@@ -27,7 +28,7 @@ static PyObject * shmht_setval(PyObject *self, PyObject *args);
 static PyObject * shmht_remove(PyObject *self, PyObject *args);
 static PyObject * shmht_foreach(PyObject *self, PyObject *args);
 
-static PyObject *shmht_error; 
+static PyObject *shmht_error;
 PyMODINIT_FUNC initshmht(void);
 
 static PyMethodDef shmht_methods[] = {
@@ -39,6 +40,20 @@ static PyMethodDef shmht_methods[] = {
     {"foreach", shmht_foreach, METH_VARARGS, ""},
     {NULL, NULL, 0, NULL}
 };
+
+// bug: half-assed file locking; I'm in a hurry at the moment. It
+// might make sense to separate read/write locks or even use file
+// regions, but there is no substitute for simplicity.
+static void mylock(fd) {
+    flock(fd, LOCK_EX);
+    // bug: not handling error condition
+}
+
+static void myunlock(fd) {
+    flock(fd, LOCK_UN);
+    // bug: not handling error condition
+}
+
 
 PyMODINIT_FUNC initshmht(void)
 {
@@ -73,6 +88,8 @@ static PyObject * shmht_open(PyObject *self, PyObject *args)
         return NULL;
     }
 
+    mylock(fd);
+
     struct stat buf;
     fstat(fd, &buf);
 
@@ -104,7 +121,7 @@ static PyObject * shmht_open(PyObject *self, PyObject *args)
     }
 
     mem_size = ht_memory_size(capacity);
-    
+
     if (buf.st_size < mem_size) {
         if (lseek(fd, mem_size - 1, SEEK_SET) == -1) {
             PyErr_Format(shmht_error, "lseek failed: [%d] %s", errno, strerror(errno));
@@ -141,11 +158,14 @@ static PyObject * shmht_open(PyObject *self, PyObject *args)
     ht_map[ht_idx].mem_size = mem_size;
     ht_map[ht_idx].ht       = ht;
 
+    myunlock(fd);
     return PyInt_FromLong(ht_idx);
 
 create_failed:
-    if (fd >= 0)
+    if (fd >= 0) {
+        myunlock(fd);
         close(fd);
+    }
     if (ht != NULL)
         munmap(ht, mem_size);
     return NULL;
@@ -171,9 +191,9 @@ static PyObject * shmht_close(PyObject *self, PyObject *args)
         //return NULL;
     }
 
-    if (ref_cnt == 0) {
-        //TODO: is it necessary to delete the mapping file?
-    }
+    // Do not delete the mapping file - somebody else might still
+    // want it.  If the application knows that the shared memory
+    // should not persist, it can delete the file.
 
     close(ht_map[idx].fd);
 
@@ -186,6 +206,8 @@ static PyObject * shmht_getval(PyObject *self, PyObject *args)
 {
     int idx, key_size;
     const char *key;
+    PyObject * return_value;
+
     if (!PyArg_ParseTuple(args, "is#:shmht.getval", &idx, &key, &key_size))
         return NULL;
 
@@ -194,12 +216,17 @@ static PyObject * shmht_getval(PyObject *self, PyObject *args)
         return NULL;
     }
 
+    mylock(ht_map[idx].fd);
+
     hashtable *ht = ht_map[idx].ht;
 
     ht_str* value = ht_get(ht, key, key_size);
     if (value == NULL) {
+        myunlock(ht_map[idx].fd);
         Py_RETURN_NONE;
     }
+
+    myunlock(ht_map[idx].fd);
     return PyString_FromStringAndSize(value->str, value->size);
 }
 
@@ -218,7 +245,13 @@ static PyObject * shmht_setval(PyObject *self, PyObject *args)
 
     hashtable *ht = ht_map[idx].ht;
 
-    if (ht_set(ht, key, key_size, value, value_size) == False) {
+    mylock(ht_map[idx].fd);
+
+    int result = ht_set(ht, key, key_size, value, value_size);
+
+    myunlock(ht_map[idx].fd);
+
+    if (result == False ) {
         PyErr_Format(shmht_error, "insert failed for key(%s)", key);
         return NULL;
     }
@@ -239,11 +272,16 @@ static PyObject * shmht_remove(PyObject *self, PyObject *args)
     }
 
     hashtable *ht = ht_map[idx].ht;
-    if (ht_remove(ht, key, key_size) == False) {
-        Py_RETURN_FALSE;
-    }
+    mylock(ht_map[idx].fd);
 
-    Py_RETURN_TRUE;
+    int result = ht_remove(ht, key, key_size);
+
+    myunlock(ht_map[idx].fd);
+
+    if ( result == False)
+        Py_RETURN_FALSE;
+    else
+        Py_RETURN_TRUE;
 }
 
 static PyObject * shmht_foreach(PyObject *self, PyObject *args)
@@ -264,6 +302,7 @@ static PyObject * shmht_foreach(PyObject *self, PyObject *args)
         return NULL;
     }
 
+    // bug: did not add locking here
     hashtable *ht = ht_map[idx].ht;
     ht_iter *iter = ht_get_iterator(ht);
     while (ht_iter_next(iter)) {
@@ -277,3 +316,6 @@ static PyObject * shmht_foreach(PyObject *self, PyObject *args)
     Py_RETURN_NONE;
 }
 
+
+// TODO: add an msync() operation.  see https://docs.python.org/2/c-api/init.html#thread-state-and-the-global-interpreter-lock for releasing the GIL during blocking I/O
+// TODO: add a find_slot() / put_slot_data() operation, so you don't need to hash the key again when you use the same key repeatedly
