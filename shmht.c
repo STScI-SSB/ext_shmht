@@ -302,15 +302,19 @@ static PyObject * shmht_foreach(PyObject *self, PyObject *args)
         return NULL;
     }
 
-    // bug: did not add locking here
+
     hashtable *ht = ht_map[idx].ht;
     ht_iter *iter = ht_get_iterator(ht);
+
+    mylock(ht_map[idx].fd);
     while (ht_iter_next(iter)) {
         ht_str *key = iter->key, *value = iter->value;
         PyObject *arglist = Py_BuildValue("(s#s#)", key->str, key->size, value->str, value->size);
         PyEval_CallObject(cb, arglist);
         Py_DECREF(arglist);
     }
+    myunlock(ht_map[idx].fd);
+
     free(iter);
 
     Py_RETURN_NONE;
