@@ -18,7 +18,7 @@ class HashTable(object):
             (bug: make this settable per table someday)
 
     import pyshmht
-    h = pyshmht.HashTable( filename, entries )
+    h = pyshmht.HashTable( filename, max_entries )
 
     ## for string keys and data values only:
 
@@ -47,9 +47,6 @@ class HashTable(object):
     ## for string key and non-string python objects
     h.getobj() and h.setobj() use a serializer to convert the object
     to a string for storage.
-
-    n.b.
-
 
     """
     def __init__(self, name, capacity=0, force_init=False, serializer=marshal, mkdirs=False):
