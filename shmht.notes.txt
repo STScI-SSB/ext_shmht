@@ -1,0 +1,54 @@
+hash tables
+
+max key size = 256
+max value size = 1024
+
+shmht.open(
+	s|ii
+		name
+			file name
+		capacity = 0
+			min number of slots in hash table
+		force_init = 0
+			initialize even if initialized
+
+	creates a file with a hash table in it
+
+	returns an integer "ident" - hash table number
+
+shmht.close
+	i
+		idx
+			number of the hash table to close
+
+shmht.getval
+	is
+		idx
+			number of the hash table
+		key
+			string index of hash table element
+
+shmht.setval
+	iss
+		idx
+			number of the hash table
+		key
+			string index of hash table element
+		value
+			string value of hash table element
+
+shmht.remove
+	is
+		idx
+			number of the hash table
+		key
+			string index of hash table element
+
+		
+shmht.foreach
+	iO
+		idx
+			number of the hash table
+		O
+			callable to be called for each element
+			called with key, value
