@@ -29,7 +29,7 @@ static PyObject * shmht_remove(PyObject *self, PyObject *args);
 static PyObject * shmht_foreach(PyObject *self, PyObject *args);
 
 static PyObject *shmht_error;
-PyMODINIT_FUNC initshmht(void);
+PyMODINIT_FUNC init_shmht(void);
 
 static PyMethodDef shmht_methods[] = {
     {"open", shmht_open, METH_VARARGS, "create a shared memory hash table"},
@@ -55,13 +55,13 @@ static void myunlock(fd) {
 }
 
 
-PyMODINIT_FUNC initshmht(void)
+PyMODINIT_FUNC init_shmht(void)
 {
-    PyObject *m = Py_InitModule("shmht", shmht_methods);
+    PyObject *m = Py_InitModule("ext_shmht._shmht", shmht_methods);
     if (m == NULL)
         return;
 
-    shmht_error = PyErr_NewException("shmht.error", NULL, NULL);
+    shmht_error = PyErr_NewException("ext_shmht._shmht.error", NULL, NULL);
     Py_INCREF(shmht_error);
     PyModule_AddObject(m, "error", shmht_error);
 
